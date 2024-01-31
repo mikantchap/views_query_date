@@ -1,0 +1,7 @@
+name: 'Views Alter Query Date'
+description: 'To change the date in views query to allow chart grouping by year, month and quarter'
+package: Circle
+type: module
+dependencies:
+  - drupal:views
+core_version_requirement: ^8 || ^9

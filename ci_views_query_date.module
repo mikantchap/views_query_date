@@ -1,0 +1,63 @@
+<?php
+
+/**
+ * @file
+ *  
+ * @author Mike Chaplin, Circle Interactive
+ *
+ * To change the date in views query to allow chart grouping by year & month. 
+ */
+ 
+ use Drupal\views\ViewExecutable;
+ use Drupal\views\Plugin\views\query\QueryPluginBase;
+ use Drupal\Core\Database\Query\AlterableInterface;
+ use Drupal\views\Plugin\views\cache\CachePluginBase;
+
+/**
+ *
+ * Removing the group_by here allows the sort criteria to take over the grouping (take a look at the SQL in the view edit). 
+ */ 
+function ci_views_query_date_query_alter(Drupal\Core\Database\Query\AlterableInterface $query) {
+
+  $targetViews = ['data_over_time_chart_updated', 'data_over_time_chart_month', 'data_over_time_chart_quarterly'];
+
+  if ($query->getMetaData('view') && in_array($query->getMetaData('view')->id(),$targetViews) ) {
+    
+    $user = \Drupal::currentUser();
+    if ($user->id()==1):
+      $messenger = \Drupal::messenger(); 
+      $messenger->addStatus(t('Admin only message: This view is being altered by custom code'));
+    endif;     
+    
+    $group_by =& $query->getGroupBy();
+    unset($group_by['node__field_activity_date_field_activity_date_value']);
+  }
+}
+
+/**
+ *
+ * This harvests the quarterly months for a new result set, and sets a culmulative value. 
+ */
+function ci_views_query_date_views_post_render(ViewExecutable $view, array &$output, CachePluginBase $cache) {
+  if ($view->id() == 'data_over_time_chart_quarterly'):
+    
+    $newResults = [];
+    $tally = 0;
+    $quarterMonths = ["03", "06", "09","12"];
+        
+    foreach ($view->result as $key => $object):
+      $month = substr($object->node__field_activity_date_field_activity_date_value_month, -2);
+
+      if (in_array($month, $quarterMonths)):
+        $object->nid = intval($object->nid) + $tally;
+        $tally = 0;
+        $newResults[] = $view->result[$key];
+      else:
+        $tally = intval($object->nid) + $tally;
+      endif; 
+
+    endforeach;
+
+    $view->result = $newResults;
+   endif;
+}
